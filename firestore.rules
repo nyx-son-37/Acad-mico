@@ -1,0 +1,298 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Reusable Hardened Primitives ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is timestamp && ts <= request.time;
+    }
+
+    function isValidBoundedStringList(arr, maxLen) {
+      return arr is list && arr.size() <= maxLen && (arr.size() == 0 || arr[0] is string);
+    }
+
+    // --- Validation Helpers ---
+    function isValidUserProfile(data, userId) {
+      return data.userId == userId &&
+             data.displayName is string && data.displayName.size() <= 100 &&
+             data.defaultPriorityMode in ['grade_a', 'deadline_b'] &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidInstitution(data, userId) {
+      return data.userId == userId &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+             data.shortName is string && data.shortName.size() <= 20 &&
+             data.type in ['university', 'college', 'school', 'course', 'other'] &&
+             data.colorHex is string && data.colorHex.size() >= 1 && data.colorHex.size() <= 16 &&
+             data.notes is string && data.notes.size() <= 500 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidCourse(data, userId) {
+      return data.userId == userId &&
+             isValidId(data.institutionId) &&
+             data.institutionName is string && data.institutionName.size() >= 1 && data.institutionName.size() <= 100 &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
+             data.code is string && data.code.size() <= 30 &&
+             data.professor is string && data.professor.size() <= 80 &&
+             data.term is string && data.term.size() <= 40 &&
+             data.targetGrade is number && data.targetGrade >= 0 && data.targetGrade <= 10000 &&
+             data.maxScale is number && data.maxScale > 0 && data.maxScale <= 10000 &&
+             data.colorHex is string && data.colorHex.size() >= 1 && data.colorHex.size() <= 16 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidCategory(data, userId) {
+      return data.userId == userId &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 60 &&
+             data.iconKey is string && data.iconKey.size() >= 1 && data.iconKey.size() <= 40 &&
+             data.colorHex is string && data.colorHex.size() >= 1 && data.colorHex.size() <= 16 &&
+             data.requiresAttachmentDefault is bool &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidAssignment(data, userId) {
+      return data.userId == userId &&
+             isValidId(data.institutionId) &&
+             isValidId(data.courseId) &&
+             isValidId(data.categoryId) &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 150 &&
+             data.description is string && data.description.size() <= 3000 &&
+             data.maxPoints is number && data.maxPoints >= 0 && data.maxPoints <= 10000 &&
+             (!('earnedPoints' in data) || data.earnedPoints == null || (data.earnedPoints is number && data.earnedPoints >= 0 && data.earnedPoints <= 10000)) &&
+             data.dueDateMillis is int && data.dueDateMillis > 0 &&
+             data.priorityType in ['grade_a', 'deadline_b'] &&
+             data.reminderEnabled is bool &&
+             data.reminderHoursBefore is int && data.reminderHoursBefore >= 1 && data.reminderHoursBefore <= 720 &&
+             data.status in ['pending', 'in_progress', 'submitted', 'graded'] &&
+             data.requiresAttachment is bool &&
+             data.requiredAttachmentSpec is string && data.requiredAttachmentSpec.size() <= 1000 &&
+             data.aiVerdict in ['none', 'approved', 'needs_revision', 'missing_requirements', 'rejected'] &&
+             data.aiSummary is string && data.aiSummary.size() <= 3000 &&
+             data.aiEstimatedPercent is int && data.aiEstimatedPercent >= 0 && data.aiEstimatedPercent <= 100 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidAttachment(data, userId, assignmentId) {
+      return data.userId == userId &&
+             data.assignmentId == assignmentId &&
+             data.fileName is string && data.fileName.size() >= 1 && data.fileName.size() <= 255 &&
+             data.mimeType is string && data.mimeType.size() >= 1 && data.mimeType.size() <= 120 &&
+             data.sizeBytes is int && data.sizeBytes >= 0 && data.sizeBytes <= 104857600 &&
+             data.localFilePath is string && data.localFilePath.size() <= 500 &&
+             data.textNote is string && data.textNote.size() <= 3000 &&
+             data.aiStatus in ['pending', 'approved', 'needs_revision', 'rejected'] &&
+             data.aiFeedback is string && data.aiFeedback.size() <= 4000 &&
+             data.aiEstimatedPercent is int && data.aiEstimatedPercent >= 0 && data.aiEstimatedPercent <= 100 &&
+             isValidBoundedStringList(data.aiStrengths, 15) &&
+             isValidBoundedStringList(data.aiGaps, 15) &&
+             isValidBoundedStringList(data.aiNextSteps, 15) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidStudyNote(data, userId) {
+      return data.userId == userId &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+             data.content is string && data.content.size() >= 1 && data.content.size() <= 4000 &&
+             data.courseId is string && data.courseId.size() <= 128 &&
+             data.assignmentId is string && data.assignmentId.size() <= 128 &&
+             data.pinned is bool &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    // --- Collection Rules ---
+    match /users/{userId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().keys().hasAll(['userId', 'displayName', 'defaultPriorityMode', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'displayName', 'defaultPriorityMode', 'createdAt', 'updatedAt']) &&
+                       isValidUserProfile(incoming(), userId);
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming(), userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'defaultPriorityMode', 'updatedAt']);
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      match /institutions/{institutionId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(institutionId);
+        allow create: if isOwner(userId) &&
+                         isValidId(institutionId) &&
+                         incoming().keys().hasAll(['userId', 'name', 'shortName', 'type', 'colorHex', 'notes', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'name', 'shortName', 'type', 'colorHex', 'notes', 'createdAt', 'updatedAt']) &&
+                         isValidInstitution(incoming(), userId);
+        allow update: if isOwner(userId) &&
+                         isValidId(institutionId) &&
+                         isValidInstitution(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'shortName', 'type', 'colorHex', 'notes', 'updatedAt']);
+        allow delete: if isOwner(userId) && isValidId(institutionId);
+      }
+
+      match /courses/{courseId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(courseId);
+        allow create: if isOwner(userId) &&
+                         isValidId(courseId) &&
+                         incoming().keys().hasAll(['userId', 'institutionId', 'institutionName', 'name', 'code', 'professor', 'term', 'targetGrade', 'maxScale', 'colorHex', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'institutionId', 'institutionName', 'name', 'code', 'professor', 'term', 'targetGrade', 'maxScale', 'colorHex', 'createdAt', 'updatedAt']) &&
+                         isValidCourse(incoming(), userId) &&
+                         exists(/databases/$(database)/documents/users/$(userId)/institutions/$(incoming().institutionId));
+        allow update: if isOwner(userId) &&
+                         isValidId(courseId) &&
+                         isValidCourse(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['institutionId', 'institutionName', 'name', 'code', 'professor', 'term', 'targetGrade', 'maxScale', 'colorHex', 'updatedAt']);
+        allow delete: if isOwner(userId) && isValidId(courseId);
+      }
+
+      match /categories/{categoryId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(categoryId);
+        allow create: if isOwner(userId) &&
+                         isValidId(categoryId) &&
+                         incoming().keys().hasAll(['userId', 'name', 'iconKey', 'colorHex', 'requiresAttachmentDefault', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'name', 'iconKey', 'colorHex', 'requiresAttachmentDefault', 'createdAt', 'updatedAt']) &&
+                         isValidCategory(incoming(), userId);
+        allow update: if isOwner(userId) &&
+                         isValidId(categoryId) &&
+                         isValidCategory(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'iconKey', 'colorHex', 'requiresAttachmentDefault', 'updatedAt']);
+        allow delete: if isOwner(userId) && isValidId(categoryId);
+      }
+
+      match /assignments/{assignmentId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(assignmentId);
+        allow create: if isOwner(userId) &&
+                         isValidId(assignmentId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'institutionId', 'courseId', 'categoryId', 'title', 'description',
+                           'maxPoints', 'dueDateMillis', 'priorityType', 'reminderEnabled', 'reminderHoursBefore',
+                           'status', 'requiresAttachment', 'requiredAttachmentSpec', 'aiVerdict', 'aiSummary',
+                           'aiEstimatedPercent', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'institutionId', 'courseId', 'categoryId', 'title', 'description',
+                           'maxPoints', 'earnedPoints', 'dueDateMillis', 'priorityType', 'reminderEnabled', 'reminderHoursBefore',
+                           'status', 'requiresAttachment', 'requiredAttachmentSpec', 'aiVerdict', 'aiSummary',
+                           'aiEstimatedPercent', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidAssignment(incoming(), userId) &&
+                         exists(/databases/$(database)/documents/users/$(userId)/courses/$(incoming().courseId));
+        allow update: if isOwner(userId) &&
+                         isValidId(assignmentId) &&
+                         isValidAssignment(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt && (
+                           // Action: Edit assignment metadata/rubric/reminders
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'institutionId', 'courseId', 'categoryId', 'title', 'description',
+                             'maxPoints', 'earnedPoints', 'dueDateMillis', 'priorityType',
+                             'reminderEnabled', 'reminderHoursBefore', 'status',
+                             'requiresAttachment', 'requiredAttachmentSpec', 'updatedAt'
+                           ]) ||
+                           // Action: Update score or status quickly
+                           incoming().diff(existing()).affectedKeys().hasOnly(['earnedPoints', 'status', 'updatedAt']) ||
+                           // Action: AI requirement or evaluation update
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'requiresAttachment', 'requiredAttachmentSpec',
+                             'aiVerdict', 'aiSummary', 'aiEstimatedPercent', 'updatedAt'
+                           ])
+                         );
+        allow delete: if isOwner(userId) && isValidId(assignmentId);
+
+        match /attachments/{attachmentId} {
+          allow list: if isOwner(userId);
+          allow get: if isOwner(userId) && isValidId(assignmentId) && isValidId(attachmentId);
+          allow create: if isOwner(userId) &&
+                           isValidId(assignmentId) &&
+                           isValidId(attachmentId) &&
+                           incoming().keys().hasAll([
+                             'userId', 'assignmentId', 'fileName', 'mimeType', 'sizeBytes',
+                             'localFilePath', 'textNote', 'aiStatus', 'aiFeedback',
+                             'aiEstimatedPercent', 'aiStrengths', 'aiGaps', 'aiNextSteps',
+                             'createdAt', 'updatedAt'
+                           ]) &&
+                           incoming().keys().hasOnly([
+                             'userId', 'assignmentId', 'fileName', 'mimeType', 'sizeBytes',
+                             'localFilePath', 'textNote', 'aiStatus', 'aiFeedback',
+                             'aiEstimatedPercent', 'aiStrengths', 'aiGaps', 'aiNextSteps',
+                             'createdAt', 'updatedAt'
+                           ]) &&
+                           isValidAttachment(incoming(), userId, assignmentId) &&
+                           exists(/databases/$(database)/documents/users/$(userId)/assignments/$(assignmentId));
+          allow update: if isOwner(userId) &&
+                           isValidId(assignmentId) &&
+                           isValidId(attachmentId) &&
+                           isValidAttachment(incoming(), userId, assignmentId) &&
+                           incoming().userId == existing().userId &&
+                           incoming().assignmentId == existing().assignmentId &&
+                           incoming().createdAt == existing().createdAt &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'textNote', 'aiStatus', 'aiFeedback', 'aiEstimatedPercent',
+                             'aiStrengths', 'aiGaps', 'aiNextSteps', 'updatedAt'
+                           ]);
+          allow delete: if isOwner(userId) && isValidId(assignmentId) && isValidId(attachmentId);
+        }
+      }
+
+      match /notes/{noteId} {
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(noteId);
+        allow create: if isOwner(userId) &&
+                         isValidId(noteId) &&
+                         incoming().keys().hasAll(['userId', 'title', 'content', 'courseId', 'assignmentId', 'pinned', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'title', 'content', 'courseId', 'assignmentId', 'pinned', 'createdAt', 'updatedAt']) &&
+                         isValidStudyNote(incoming(), userId);
+        allow update: if isOwner(userId) &&
+                         isValidId(noteId) &&
+                         isValidStudyNote(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'content', 'courseId', 'assignmentId', 'pinned', 'updatedAt']);
+        allow delete: if isOwner(userId) && isValidId(noteId);
+      }
+    }
+  }
+}

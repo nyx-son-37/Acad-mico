@@ -1,0 +1,174 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated student profile and priority preferences.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "defaultPriorityMode": { "type": "string", "enum": ["grade_a", "deadline_b"] },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp set via FieldValue.serverTimestamp()" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp set via FieldValue.serverTimestamp()" }
+      },
+      "required": ["userId", "displayName", "defaultPriorityMode", "createdAt", "updatedAt"]
+    },
+    "Institution": {
+      "title": "Institution",
+      "description": "Educational institution (university, college, school, or platform).",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "shortName": { "type": "string" },
+        "type": { "type": "string", "enum": ["university", "college", "school", "course", "other"] },
+        "colorHex": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "shortName", "type", "colorHex", "notes", "createdAt", "updatedAt"]
+    },
+    "Course": {
+      "title": "Course",
+      "description": "Academic discipline associated with an institution.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "institutionId": { "type": "string" },
+        "institutionName": { "type": "string" },
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "professor": { "type": "string" },
+        "term": { "type": "string" },
+        "targetGrade": { "type": "number" },
+        "maxScale": { "type": "number" },
+        "colorHex": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "institutionId", "institutionName", "name", "code", "professor", "term", "targetGrade", "maxScale", "colorHex", "createdAt", "updatedAt"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Custom assignment category configured by the user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "iconKey": { "type": "string" },
+        "colorHex": { "type": "string" },
+        "requiresAttachmentDefault": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "iconKey", "colorHex", "requiresAttachmentDefault", "createdAt", "updatedAt"]
+    },
+    "Assignment": {
+      "title": "Assignment",
+      "description": "Academic assignment linked to institution, course, category, score, priority reminders, and AI attachment evaluation.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "institutionId": { "type": "string" },
+        "courseId": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "maxPoints": { "type": "number" },
+        "earnedPoints": { "type": "number" },
+        "dueDateMillis": { "type": "integer" },
+        "priorityType": { "type": "string", "enum": ["grade_a", "deadline_b"] },
+        "reminderEnabled": { "type": "boolean" },
+        "reminderHoursBefore": { "type": "integer" },
+        "status": { "type": "string", "enum": ["pending", "in_progress", "submitted", "graded"] },
+        "requiresAttachment": { "type": "boolean" },
+        "requiredAttachmentSpec": { "type": "string" },
+        "aiVerdict": { "type": "string", "enum": ["none", "approved", "needs_revision", "missing_requirements", "rejected"] },
+        "aiSummary": { "type": "string" },
+        "aiEstimatedPercent": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "institutionId", "courseId", "categoryId", "title", "description",
+        "maxPoints", "dueDateMillis", "priorityType", "reminderEnabled", "reminderHoursBefore",
+        "status", "requiresAttachment", "requiredAttachmentSpec", "aiVerdict", "aiSummary",
+        "aiEstimatedPercent", "createdAt", "updatedAt"
+      ]
+    },
+    "Attachment": {
+      "title": "Attachment",
+      "description": "File or draft attachment linked to an assignment and evaluated by Gemini AI.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "assignmentId": { "type": "string" },
+        "fileName": { "type": "string" },
+        "mimeType": { "type": "string" },
+        "sizeBytes": { "type": "integer" },
+        "localFilePath": { "type": "string" },
+        "textNote": { "type": "string" },
+        "aiStatus": { "type": "string", "enum": ["pending", "approved", "needs_revision", "rejected"] },
+        "aiFeedback": { "type": "string" },
+        "aiEstimatedPercent": { "type": "integer" },
+        "aiStrengths": { "type": "string" },
+        "aiGaps": { "type": "string" },
+        "aiNextSteps": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "assignmentId", "fileName", "mimeType", "sizeBytes", "localFilePath",
+        "textNote", "aiStatus", "aiFeedback", "aiEstimatedPercent", "aiStrengths",
+        "aiGaps", "aiNextSteps", "createdAt", "updatedAt"
+      ]
+    },
+    "StudyNote": {
+      "title": "StudyNote",
+      "description": "Quick plain-text note associated with a course or assignment.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "courseId": { "type": "string" },
+        "assignmentId": { "type": "string" },
+        "pinned": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "content", "courseId", "assignmentId", "pinned", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Student profile and academic priority preferences."
+    },
+    "/users/{userId}/institutions/{institutionId}": {
+      "schema": { "$ref": "#/entities/Institution" },
+      "description": "Student's academic institutions."
+    },
+    "/users/{userId}/courses/{courseId}": {
+      "schema": { "$ref": "#/entities/Course" },
+      "description": "Courses associated with an institution."
+    },
+    "/users/{userId}/categories/{categoryId}": {
+      "schema": { "$ref": "#/entities/Category" },
+      "description": "Custom assignment categories."
+    },
+    "/users/{userId}/assignments/{assignmentId}": {
+      "schema": { "$ref": "#/entities/Assignment" },
+      "description": "Academic assignments with score, deadline priority, reminders, and AI attachment status."
+    },
+    "/users/{userId}/assignments/{assignmentId}/attachments/{attachmentId}": {
+      "schema": { "$ref": "#/entities/Attachment" },
+      "description": "Attachments submitted for an assignment and evaluated by AI."
+    },
+    "/users/{userId}/notes/{noteId}": {
+      "schema": { "$ref": "#/entities/StudyNote" },
+      "description": "Quick study notes linked to courses or assignments."
+    }
+  }
+}

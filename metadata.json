@@ -1,0 +1,6 @@
+{
+  "name": "Acadêmico",
+  "description": "Gerenciador de vida acadêmica com instituições, disciplinas, trabalhos por categoria, pontuação, lembretes por prioridade e assistente de IA para exigir e avaliar anexos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
